@@ -19,6 +19,7 @@ fun BottomNav(navController: NavController){
 
         val ic_battery = painterResource(id= R.drawable.ic_battery)
         val ic_build = painterResource(id= R.drawable.ic_build)
+        val ic_memory = painterResource(id= R.drawable.ic_memory)
 
         NavigationBarItem(
             selected = currentDestination?.route == Destination.Battery.route,
@@ -49,7 +50,7 @@ fun BottomNav(navController: NavController){
                     popUpTo(Destination.Memory.route)
                     launchSingleTop = true
                 }},
-            icon = { Icon(painter = ic_build, contentDescription = null)},
+            icon = { Icon(painter = ic_memory, contentDescription = null)},
             label = { Text(text = Destination.Memory.route) }
         )
     }
