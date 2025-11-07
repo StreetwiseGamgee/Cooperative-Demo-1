@@ -20,6 +20,7 @@ import com.cturner56.cooperative_demo_1_device_statistics.ui.theme.CooperativeDe
 import com.cturner56.cooperative_demo_1_device_statistics.destinations.Destination
 import com.cturner56.cooperative_demo_1_device_statistics.screens.BatteryScreen
 import com.cturner56.cooperative_demo_1_device_statistics.screens.BuildScreen
+import com.cturner56.cooperative_demo_1_device_statistics.screens.DropdownMenu
 import com.cturner56.cooperative_demo_1_device_statistics.screens.MemoryScreen
 
 
@@ -34,7 +35,10 @@ class MainActivity : ComponentActivity() {
                Scaffold(
                    topBar = {
                        TopAppBar(
-                           title = { Text("Co-op Learning Demo #1")}
+                           title = { Text("Co-op Learning Demo #1")},
+                           actions = {
+                               DropdownMenu()
+                           }
                        )
                    },
                    bottomBar = {
