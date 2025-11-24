@@ -29,7 +29,7 @@ object Api {
         .baseUrl(BASE_URL)
         .build()
 
-//    val retrofitService: GithubService by lazy {
-//        retrofit.create(GithubService::class.java)
-//    }
+    val retrofitService: GithubService by lazy {
+        retrofit.create(GithubService::class.java)
+    }
 }
