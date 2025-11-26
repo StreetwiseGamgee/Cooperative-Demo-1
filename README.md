@@ -24,7 +24,7 @@ The main purpose of this application is to provide a streamlined means of fetchi
   - I don't currently have dependencies installed, and additional research is required to implement.
 
 ## External Dependencies
-- [Shizuku Download](https://shizuku.rikka.app/download/) - To see additional device information.
+- [Shizuku Download](https://shizuku.rikka.app/download/) - Download App.
 - [Shizuku User Manual](https://shizuku.rikka.app/guide/setup/) - Setup instructions.
 
 ### Features:
@@ -56,7 +56,7 @@ The main purpose of this application is to provide a streamlined means of fetchi
 1. Using android studio open the cloned project as an existing project.
 2. Wait for respective build process to finish loading it's dependencies / configurations (Gradle Syncing).
 3. Assemble the app and run the configuration to the target device.
-    - By by pressing ```shift + f10``` (On Windows) || ```Control + R``` (On Mac)
+    - By pressing ```shift + f10``` (On Windows) || ```Control + R``` (On Mac)
 4. Wait for the install to finish, and enjoy!
 
 #### For users:
@@ -68,4 +68,3 @@ Will implement an apk for general use in the near future.
 ## Contact Info:
 - [cturner56@academic.rrc.ca](mailto:cturner56@academic.rrc.ca)
 - [xblcit@gmail.com](mailto:xblcit@gmail.com)
-
