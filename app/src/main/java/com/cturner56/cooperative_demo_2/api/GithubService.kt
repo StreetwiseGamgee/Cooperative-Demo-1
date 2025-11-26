@@ -2,8 +2,21 @@ package com.cturner56.cooperative_demo_2.api
 
 import com.cturner56.cooperative_demo_2.api.model.GithubRepository
 import com.cturner56.cooperative_demo_2.api.model.RepositoryReleaseVersion
+import com.squareup.moshi.Json
 import retrofit2.http.GET
 import retrofit2.http.Path
+
+/**
+ * Purpose - a data class which models the JSON response from Github's API repository search endpoint.
+ * Acting as a wrapper for the list of spotlighted repositories.
+ * @param repos || A list of [GithubRepository] objects.
+ * @return An [RepositoriesQuery] object containing a list of retrieved repos.
+ * doc-ref || "https://docs.github.com/en/rest/search/search?apiVersion=2022-11-28#search-repositories
+ */
+data class RepositoriesQuery(
+    @Json(name = "repos")
+    val repos: List<GithubRepository>
+)
 
 /**
  * Defines the Rest API endpoints for the Github API.
@@ -14,7 +27,7 @@ interface GithubService {
      * @param owner || The username affiliated to the repo.
      * @param repo || The name of the repo.
      * @return a [GithubRepository] object containing relevant repo details.
-     * doc-ref (loose ref) || "https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#get-a-repository"
+     * doc-ref || "https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#get-a-repository"
      */
     @GET("repos/{owner}/{repo}")
     suspend fun getRepository(
