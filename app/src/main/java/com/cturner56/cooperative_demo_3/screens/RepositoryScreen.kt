@@ -32,8 +32,14 @@ import com.cturner56.cooperative_demo_3.db.AppDatabase
 import com.cturner56.cooperative_demo_3.viewmodel.GithubViewModel
 
 /**
- * Purpose - A composable function which renders a Github repository, making use of [GithubViewModel]
- * to fetch relevant information pertaining to the repo itself, and the latest release provided.
+ * Purpose - A composable function which renders a Github repositories.
+ * It observes the state from the [GithubViewModel] to display content.
+ *
+ * A loading indicator will remain should the device not have a local cache or...
+ * The device is disconnected from the internet!
+ *
+ * Data retrieval is triggered by a [LaunchedEffect] when the screen is composed.
+ *
  * @param githubViewModel - Responsible for fetching, and holding repository information.
  */
 @Composable
@@ -57,18 +63,34 @@ fun RepositoryScreen(
             .fillMaxSize()
             .padding(16.dp),
     ) {
+        val isLoading = repositories.isEmpty() && error == null
         when {
-            repositories.isEmpty() && error == null -> {
+            isLoading -> {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {// Loading State.
-//                    CircularProgressIndicator()
-//                    Spacer(modifier = Modifier.height(8.dp))
-//                    Text("Fetching repository information, please wait.")
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Fetching repository information, please wait.")
+                }
+            }
+            repositories.isNotEmpty() -> {
+                if (error != null ) {
+                    Text(
+                        text = error,
+                        color = Color.Red,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
 
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(repositories) { repo ->
+                        val release = releases[repo.fullName]
+                        RepositoryCard(repository = repo, release = release)
+                    }
+                }
             }
 
             error != null -> {
@@ -82,16 +104,6 @@ fun RepositoryScreen(
                         color = Color.Red,
                         style = MaterialTheme.typography.bodyLarge
                     )
-                }
-            }
-
-            else -> {
-
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(repositories) { repo ->
-                        val release = releases[repo.fullName]
-                        RepositoryCard(repository = repo, release = release)
-                    }
                 }
             }
         }
