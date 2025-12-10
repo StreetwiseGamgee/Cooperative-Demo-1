@@ -70,7 +70,7 @@ data class RepositoryReleaseVersion (
     @Json(name = "id")
     val id: Long = 0,
 
-    val repoFullName: String = "",
+    var repoFullName: String = "",
 
     @Json(name = "tag_name")
     val tagName: String = "",

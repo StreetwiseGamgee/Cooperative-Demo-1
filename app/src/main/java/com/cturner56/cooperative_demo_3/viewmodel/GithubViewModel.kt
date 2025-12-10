@@ -12,13 +12,17 @@ import com.cturner56.cooperative_demo_3.db.GithubDao
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * A [ViewModel] which exposes relevant repo information, and release details for a public Github repository.
- * It uses Github's Rest-API to retrieve such information.
+ * A [ViewModel] which is responsible for retrieving and caching relevant repository information,
+ * as well as release details for a pre-defined list of public Github repositories.
+ *
+ * It fetches information from a local Room database for caching, and
+ * utilizes Github's RestfulAPI to retrieve and update such information.
+ *
+ * It exposes subsequently retrieved data, and or errors through the use of [State] objects.
  */
 class GithubViewModel : ViewModel() {
 
@@ -46,83 +50,133 @@ class GithubViewModel : ViewModel() {
     )
 
     /**
-     * A function which is responsible for retrieving repository information pertaining to repos
-     * found inside the [featuredRepositories] list.
+     * A function which is responsible for calling on, and loading repository related information.
      *
-     * It first attempts to retrieve cached information from the local Room database.
-     * It then initiates a network request to fetch the latest data from GitHub's API.
-     * If successful, it updates the local cache and refreshes the UI to display the latest info.
+     * Providing a main entry point for data loading. It initiates a coroutine that:
+     * 1. First calls on [loadFromCache] in an attempt to retrieve data which has been stored
+     * locally via Room-db.
      *
-     * The function updates the following states:
-     * [repositoryListState]: Populates with repos which we're successfully fetched.
-     * [releasesState]: Populates latest release for each successfully fetched repository.
-     * [errorState] Updates in case of any errors. Providing messages based on respective error caught.
+     * 2. Subsequently it calls on [refreshFromNetwork] in attempt to refresh data
+     * from respective online sources.
      *
-     * In the event some repositories fail to load, an [errorState] will indicate how many we're failed
-     * to be retrieved.
+     * 3. In the event the refresh fails, an appropriate error message is displayed while still
+     * providing offline access.
      *
-     * @param githubDao The Data Access Object responsible for for interacting with local repo cache.
-     * @throws CancellationException if the viewModelScope is canceled.
+     * @param githubDao The Data Access Object for interacting with the local Room database.
      */
     fun fetchFeaturedRepos(githubDao: GithubDao) {
         viewModelScope.launch {
-            // Attempts to load repository data from cached entries first.
-            try {
-                val cachedRepositories = withContext(Dispatchers.IO) {githubDao.getAllRepositories() }
-                if (cachedRepositories.isNotEmpty()) {
-                    _repositoryListState.value = cachedRepositories
+            loadFromCache(githubDao)
 
-                    val cachedReleasesMap = cachedRepositories.associate { repo ->
-                        repo.fullName to withContext(Dispatchers.IO) {
-                            githubDao.getReleasesForRepository(repo.fullName).firstOrNull()
-                        }
-                    }
-                    _releasesState.value = cachedReleasesMap
-                }
-            } catch(e: Exception) {
-                Log.e("CIT - GithubViewModel", "Failed to load repository information from offline cache.", e)
+            val wasRefreshSuccessful = refreshFromNetwork(githubDao)
+
+            if (!wasRefreshSuccessful) {
+                _errorState.value = " Unable to refresh online content,\n displaying offline data."
             }
+        }
+    }
 
-            try {
-                _errorState.value = null
+    /**
+     *  A function which attempts to retrieve cached repository information from the
+     *  local Room database. If data is found, [repositoryListState] and [releasesState] are displayed.
+     *
+     *  [repositoryListState]: Populates with repositories which are stored in Room.
+     *  [releasesState]: Populates with releases which are stored in Room.
+     *  [errorState] Updates in case of any errors. Providing messages based on respective error caught.
+     */
+    private suspend fun loadFromCache(githubDao: GithubDao) {
+        try {
+            val (cachedRepositories, cachedReleasesMap) = withContext(Dispatchers.IO) {
+                val repos = githubDao.getAllRepositories()
+                val releases = repos.associate { repo ->
+                    repo.fullName to githubDao.getReleasesForRepository(repo.fullName).firstOrNull()
+                }
+                repos to releases
+            }
+            if (cachedRepositories.isNotEmpty()) {
+                Log.d("CIT - GithubViewModel", "Successfully loaded repositories from cache.")
+                _repositoryListState.value = cachedRepositories
+                _releasesState.value = cachedReleasesMap
+            } else {
+                Log.d(
+                    "CIT - GithubViewModel",
+                    "Local instance is empty. Attempting to fetch via network."
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(
+                "CIT - GithubViewModel",
+                "Failed to load repository information from offline cache.", e
+            )
+        }
+    }
+
+    /**
+     * A function which attempts to refresh repository data from the network.
+     * On success, it returns true, and subsequently updates the UI and cached data.
+     * On failure it returns false.
+     *
+     * [repositoryListState]: Populates with repos which we're successfully fetched.
+     * [releasesState]: Populates latest release for each successfully fetched repository.
+     * [errorState]: Clears error state on a new attempt, but not set such on failure.
+     */
+    private suspend fun refreshFromNetwork(githubDao: GithubDao): Boolean {
+        return try {
+            _errorState.value = null // Clears any existing error messages.
+            // Creates a list of async jobs for each repository.
+            val repositories = withContext(Dispatchers.IO) {
                 val repositoryRetrieval = featuredRepositories.map { fullName ->
-                    async(Dispatchers.IO) {
-                        try{
+                    async {
+                        try {
                             val (owner, repo) = fullName.split("/")
                             Api.retrofitService.getRepository(owner, repo)
                         } catch (e: Exception) {
+                        Log.e(
+                            "CIT - GithubViewModel", "Failed to refresh repository " +
+                            "from online resource: $fullName", e)
                             null
                         }
                     }
                 }
-                val repositories = repositoryRetrieval.awaitAll().filterNotNull()
+                repositoryRetrieval.awaitAll().filterNotNull()
+            }
 
-                if (repositories.isNotEmpty()) {
-                    val releaseRetrieval = repositories.map { repo ->
-                        async(Dispatchers.IO) {
-                            try{
-                                val (owner, name) = repo.fullName.split("/")
-                                val latestRelease = Api.retrofitService.getReleases(owner, name).firstOrNull()
-                                repo.fullName to latestRelease
-                            } catch (e: Exception) {
-                                repo.fullName to null
-                            }
+            if (repositories.isEmpty()) {
+                return false
+            }
+            val releasesMap = withContext(Dispatchers.IO) {
+                val releaseRetrieval = repositories.map { repo ->
+                    async {
+                        try {
+                            val (owner, name) = repo.fullName.split("/")
+                            val latestRelease =
+                                Api.retrofitService.getReleases(owner, name).firstOrNull()
+                            latestRelease?.repoFullName = repo.fullName
+                            repo.fullName to latestRelease
+                        } catch (e: Exception) {
+                            repo.fullName to null
                         }
                     }
-                    val releasesMap = releaseRetrieval.awaitAll().toMap()
-
-                    withContext(Dispatchers.IO) {
-                        githubDao.insertRepositories(repositories)
-                        githubDao.insertReleases(releasesMap.values.filterNotNull())
-                    }
-
-                    _repositoryListState.value = repositories
-                    _releasesState.value = releasesMap
                 }
-            } catch (e: Exception) {
-                _errorState.value = "Couldn't refresh content. Displaying offline data."
-                Log.e("CIT - GithubViewModel", "Unable to refresh data, showing cached content", e)
+                releaseRetrieval.awaitAll().toMap()
             }
+            _repositoryListState.value = repositories // Update UI State
+            _releasesState.value = releasesMap // Updates UI State
+
+            withContext(Dispatchers.IO) { // Writes newly retrieved data to local Room -db instance.
+                githubDao.insertRepositories(repositories)
+                // Ensures null releases aren't inserted into the database.
+                githubDao.insertReleases(releasesMap.values.filterNotNull())
+                Log.d(
+                    "CIT - GithubViewModel",
+                    "Information successfully retrieved from online sources, " +
+                            "updated local cache with ${repositories.size} repos!"
+                )
+            }
+            true
+        } catch (e: Exception) {
+                Log.e("CIT - GithubViewModel", "Unable to refresh data, showing cached content", e)
+            false
         }
     }
 }
