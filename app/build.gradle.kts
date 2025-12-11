@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.cturner56.cooperative_demo_3"
+    namespace = "com.cturner56.streetwise_toolbox"
     compileSdk = 36
 
     sourceSets {
