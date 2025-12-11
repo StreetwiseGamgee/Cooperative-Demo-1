@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
                    Scaffold(
                        topBar = {
                            TopAppBar(
-                               title = { Text("Co-op Learning Demo #3")},
+                               title = { Text("Streetwise's Toolbox")},
                                actions = {
                                    DropdownMenu(navController)
                                }

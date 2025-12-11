@@ -1,4 +1,4 @@
-package com.cturner56.cooperative_demo_3;
+package com.cturner56.streetwise_toolbox;
 
 /*
 * IUserService:
