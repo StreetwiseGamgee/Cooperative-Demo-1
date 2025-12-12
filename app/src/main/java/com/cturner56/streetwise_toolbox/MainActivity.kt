@@ -10,8 +10,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -26,51 +30,69 @@ import com.cturner56.streetwise_toolbox.screens.FeedbackScreen
 import com.cturner56.streetwise_toolbox.screens.MemoryScreen
 import com.cturner56.streetwise_toolbox.screens.RepositoryScreen
 import com.cturner56.streetwise_toolbox.utils.ManagePermissionState
+import com.cturner56.streetwise_toolbox.viewmodel.AuthViewModel
 
 
 class MainActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
            CooperativeDemo1DeviceStatisticsTheme {
-               ManagePermissionState { isGranted, requestPermission ->
-                   val navController = rememberNavController()
-                   Scaffold(
-                       topBar = {
-                           TopAppBar(
-                               title = { Text("Streetwise's Toolbox")},
-                               actions = {
-                                   DropdownMenu(navController)
-                               }
-                           )
-                       },
-                       bottomBar = {
-                           BottomNav(navController = navController)
-                       }
-                   ) { paddingValues ->
-                       paddingValues.calculateBottomPadding()
-                       Spacer(modifier = Modifier.padding(10.dp))
-                       NavHost(
-                           navController = navController,
-                           startDestination = Destination.Build.route,
-                           modifier = Modifier.padding(paddingValues)
-                       ) {
-                           composable(Destination.Battery.route) { BatteryScreen() }
-                           composable(Destination.Build.route) { BuildScreen(
-                               isShizukuGranted = isGranted,
-                               onRequestShizukuPermission = requestPermission
-                           )}
+               val authViewModel: AuthViewModel = viewModel()
+               val isAuthenticated by authViewModel.isAuthenticated.collectAsState()
+               val startDestination = if (isAuthenticated) "MainScaffold" else "LoginScreen"
+               val navController = rememberNavController()
 
-                           composable(Destination.Memory.route) { MemoryScreen() }
-                           composable(Destination.About.route) { AboutScreen() }
-                           composable(Destination.Feedback.route) { FeedbackScreen() }
-                           composable(Destination.RepoSpotlight.route) { RepositoryScreen() }
-                       }
+               NavHost(
+                   navController = navController,
+                   startDestination = startDestination
+               ) {
+                   composable("LoginScreen") {
+//                       LoginScreen(navController = navController, authViewModel = authViewModel)
                    }
                }
            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainActivityScaffold(navController: androidx.navigation.NavController) {
+    ManagePermissionState { isGranted, requestPermission ->
+        val innerNavController = rememberNavController()
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Streetwise's Toolbox")},
+                    actions = {
+                        DropdownMenu(innerNavController)
+                    }
+                )
+            },
+            bottomBar = {
+                BottomNav(navController = innerNavController)
+            }
+        ) { paddingValues ->
+            paddingValues.calculateBottomPadding()
+            Spacer(modifier = Modifier.padding(10.dp))
+            NavHost(
+                navController = innerNavController,
+                startDestination = Destination.Build.route,
+                modifier = Modifier.padding(paddingValues)
+            ) {
+                composable(Destination.Battery.route) { BatteryScreen() }
+                composable(Destination.Build.route) { BuildScreen(
+                    isShizukuGranted = isGranted,
+                    onRequestShizukuPermission = requestPermission
+                )}
+
+                composable(Destination.Memory.route) { MemoryScreen() }
+                composable(Destination.About.route) { AboutScreen() }
+                composable(Destination.Feedback.route) { FeedbackScreen() }
+                composable(Destination.RepoSpotlight.route) { RepositoryScreen() }
+            }
         }
     }
 }
