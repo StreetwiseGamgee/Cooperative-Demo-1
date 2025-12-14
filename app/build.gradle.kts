@@ -48,6 +48,10 @@ android {
     }
 }
 
+configurations.all {
+    exclude(group = "com.google.firebase", module = "protolite-well-known-types")
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -57,14 +61,8 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
     implementation(libs.androidx.navigation.compose)
-    implementation(libs.protolite.well.known.types)
     implementation(libs.material3)
-    implementation(libs.firebase.auth)
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.googleid)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -90,13 +88,14 @@ dependencies {
     implementation(libs.androidx.room.common)
 
     // firebase
+    implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
 
     // credentials
     implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
 
     // google
-    implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
     ksp(libs.androidx.room.compiler)

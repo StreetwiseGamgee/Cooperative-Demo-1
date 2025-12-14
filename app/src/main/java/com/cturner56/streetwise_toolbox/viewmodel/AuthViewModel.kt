@@ -1,11 +1,12 @@
 package com.cturner56.streetwise_toolbox.viewmodel
 
-
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.auth.OAuthProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -36,6 +37,18 @@ class AuthViewModel : ViewModel() {
     private val _signInState = MutableStateFlow<SignInState>(SignInState.Idle) // Holds current state
     val signInState = _signInState.asStateFlow()
 
+    init {
+        auth.pendingAuthResult?.let { task ->
+            _signInState.value = SignInState.Loading
+            task.addOnSuccessListener { authResult ->
+                _signInState.value = SignInState.Success(authResult)
+                _isAuthenticated.value = true
+            }.addOnFailureListener { e ->
+                _signInState.value = SignInState.Error(e.message ?: "Unexpected error occurred!")
+            }
+        }
+    }
+
     /**
      * A function which is responsible for initiating the google sign-in process with firebase.
      * The suspend function is launched in a [viewModelScope] to perform async network operations to
@@ -55,6 +68,25 @@ class AuthViewModel : ViewModel() {
                 _signInState.value = SignInState.Error(e. message ?: "Unexpected error occurred!")
             }
         }
+    }
+
+    /**
+     * A function which is responsible for initiating the github sign-in process with firebase.
+     */
+    fun signInWithGithub(activity: Activity) {
+        _signInState.value = SignInState.Loading
+        val provider = OAuthProvider.newBuilder("github.com").apply {
+            scopes = listOf("user:email", "read:user")
+        }.build()
+
+        auth.startActivityForSignInWithProvider(activity, provider)
+            .addOnSuccessListener { authResult ->
+                _signInState.value = SignInState.Success(authResult)
+                _isAuthenticated.value = true
+            }
+            .addOnFailureListener { e ->
+                _signInState.value = SignInState.Error(e.message ?: "Unexpected error occurred!")
+            }
     }
 
     /**

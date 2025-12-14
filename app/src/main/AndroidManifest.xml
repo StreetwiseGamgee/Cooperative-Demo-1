@@ -24,6 +24,15 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                    <!-- Pulled from google-services.json to allow Github OAuth-->
+                    <!-- "client_id":
+                    "377482797690-hispmgku6817os74pgifpr1dnv1625k4.apps.googleusercontent.com"-->
+                <data android:scheme="com.googleusercontent.apps.377482797690-hispmgku6817os74pgifpr1dnv1625k4" />
+            </intent-filter>
         </activity>
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
