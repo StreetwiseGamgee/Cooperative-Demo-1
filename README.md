@@ -6,12 +6,24 @@
 The main purpose of this application is to provide a streamlined means of fetching device information without needing root-level access.
 
 ## Tech Used:
-### Shizuku - (Dev. [RikkaApps](https://github.com/RikkaApps))
+### Shizuku - (Dev. [RikkaApps](https://github.com/RikkaApps/Shizuku))
 - A companion application which provides a means to access hidden device information.
   - This is achieved by initiating a remote server process on the device.
-    - By doing so, we are able to execute commands with elevated privileges which normally require ADB, and or root to access.
+    - By doing so, we are able to execute commands with elevated privileges which normally require ADB while connected to a computer, and or root-level permissions to access.
+   
+### Shizuku-API (Dev. [RikkaApps](https://github.com/RikkaApps/Shizuku-API))
+- The API is used to safely request permissions and execute commands with elevated privledges provided by the Shizuku service.
+  - Currently, this allows the device to retrieve kernel-specific information such as the ```ro.kernel.version``` and executes the shell command ```uname -r``` to retrieve the kernel's release version. 
+- Licensed under the [MIT License](https://github.com/RikkaApps/Shizuku-API?tab=MIT-1-ov-file#readme), Copyright (c) 2021 RikkaW.
 
-- Licensed under the [MIT License](app/src/main/assets/LICENSE), Copyright (c) 2021 RikkaW.
+### Vico - (Dev. [patrykandpatrick](https://github.com/patrykandpatrick/vico))
+- An immaculate charting library which powers Streetwise Toolbox to display live-graph readings for battery temperature fluctuations.
+  - Fluctuations are graphed as the broadcasts containing the charging state, battery percentage, and temperature are detected to have changed.
+- Licensed under the [Apache-2.0 License](https://github.com/patrykandpatrick/vico?tab=Apache-2.0-1-ov-file#readme), Copyright (c) 2024 Patryk Michalik
+
+### Coil - (Dev. [coil-kt](https://github.com/coil-kt/coil))
+- A library which is responsible for retrieving loading the user's profile picture in Streetwise Toolbox. 
+- Licensed under the [Apache-2.0 License](https://github.com/coil-kt/coil?tab=Apache-2.0-1-ov-file#readme), Copyright (c) 2025 Coil Contributors
 
 ### Moshi - (Square)
 - Provides **JSON deserialization** when fetching repository information from Github's [Rest API](https://docs.github.com/en/rest?apiVersion=2022-11-28)
@@ -20,36 +32,45 @@ The main purpose of this application is to provide a streamlined means of fetchi
 ### Room-DB - (Android Jetpack)
 - Providing local persistence to data which is retrieved from GitHub's Restful API.
 
-### Firebase - (Google) - (WIP)
+### Firebase Authentication- (Google)
 - Allowing users to register and sign-in using Firebase Authentication.
-  - I don't currently have dependencies installed, and additional research is required to implement.
 
-## External Dependencies
+## External Dependencies (Shizuku)
 - [Shizuku Download](https://shizuku.rikka.app/download/) - Download App.
 - [Shizuku User Manual](https://shizuku.rikka.app/guide/setup/) - Setup instructions.
 
 ### Features:
-#### Battery Monitoring (WIP):
-- Currently I have basic information such as the battery's percentage, whether it's charging, and the internal temperature.
-#### Build Properties / Kernel Info (WIP): 
-- I have basic build.prop information being displayed.
-- Relevant kernel information is displayed if a user has installed Shizuku, the service is running and has granted the permission.
+#### Battery Monitoring:
+- The battery screen allows users to review their device's battery percentage, whether it's charging, and the internal temperature.
+- (NEW!): Implemented live-graph chart solution to track battery temperature updates thanks to the wonderful library provided by Coil-kt.
+
+#### Build Properties / Kernel Info: 
+- The build screen allows users to see device properties pertaining to their instance. It allows for quick retrieval of specific ```build.prop``` information.
+- Additionally, users can see relevant kernel information if Shizuku is installed, the service running, and has granted ```Streetwise-Toolbox``` the requisite permission.
+  - Having this information is particularly useful when deciding to root a device. Specifically by having the kernel release handy, we are then able to choose an appropriate root-solution which is correspondant to our version.
+  - For instance say your phone's kernel release is ```6.1.24...``` we could then take such and navigate to [WildKernels](https://github.com/WildKernels/GKI_KernelSU_SUSFS?tab=readme-ov-file#-available-kernels) and choose an appropriate script to flash via a custom recovery.
+  
 #### Storage Information:
 - Provides information pertaining to ram usage and storage consumption.
+
 #### Repository Spotlight
 - Provides a space where users can discover repositories pertaining to root-related modules.
   - Allowing users to navigate to both the respective GitHub repositories, and releases via hyperlinks.
     - Information is retrieved using GitHub's Restful API over the network, and subsequently stored locally. 
-  - In addition to such, users are able to insert and delete entries. 
+  - In addition to such, users are able to insert and delete entries.
+  
+#### Account Authentication
+- Providing a streamlined means of account registry, and subsequent logins.
+  - Preventing the need for users to create a username, and or password.
 
 ### Proposed Features:
 #### In-scope: 
 ##### Battery Health (Extended):
 - ~~Provide a means to check the temperature of the device's battery~~ (Completed).
-- ~~Implement a graph-chart visual to represent the fluctuations or differences in real-time.~~ (Completed)
+- ~~Implement a graph-chart visual to represent the fluctuations or differences in real-time~~ (Completed).
 
 ##### User Registry / Account Login:
-- Provide a means of account registry and authentication.
+- ~~Provide a means of account registry and authentication~~ (Completed).
 - Provide an in-app updater, or some type of notification system that let's users know when an update is available.
 
 #### Out of Scope:
