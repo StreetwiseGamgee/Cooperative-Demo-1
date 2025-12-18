@@ -7,51 +7,69 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cturner56.streetwise_toolbox.api.GithubRepositoryManager
+import com.cturner56.streetwise_toolbox.api.UserRepositoryManager
 import com.cturner56.streetwise_toolbox.api.model.GithubRepository
 import com.cturner56.streetwise_toolbox.api.model.RepositoryReleaseVersion
 import com.cturner56.streetwise_toolbox.db.AppDatabase
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 /**
  * A [AndroidViewModel] which is responsible for retrieving and caching relevant repository information,
  * as well as release details for a pre-defined list of public Github repositories.
  *
- * It fetches information from a local Room database for caching, and
- * utilizes Github's [GithubRepositoryManager] to retrieve and update such information.
+ * Data flow is conducted between the UI and data layers. It fetches information from the local
+ * Room-db via the [GithubRepositoryManager] to retrieve and update information.
  *
  * It exposes subsequently retrieved data, and or errors through the use of [State] objects.
  */
 class GithubViewModel(application: Application) : AndroidViewModel(application) {
     private val TAG = "CIT - GithubViewModel"
+
     private val repositoryManager: GithubRepositoryManager
-
+    private val userRepositoryManager: UserRepositoryManager
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
+    private var userSavedRepositories = emptyList<String>()
 
+    /**
+     * A listener which is responsible for triggering data fetching when the user auth state changes.
+     * If logged in it'll sync user preferences and data. Otherwise, when logged out it will clear
+     * user related data.
+     */
     private  val authStateListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        // If the user is valid,
+        // fetch their preferences and saved repositories utilizing UserRepositoryManager
         if (firebaseAuth.currentUser != null) {
-            // If the user is valid, fetch their preference from Firestore
-            fetchNetworkRefreshPreference()
+            viewModelScope.launch {
+                fetchNetworkRefreshPreference()
+                fetchUserSavedRepos()
+                fetchFeaturedRepos()
+            }
         } else {
             _isNetworkRefreshDisabled.value = false
+            userSavedRepositories = emptyList()
             fetchFeaturedRepos()
         }
     }
 
+    /**
+     * Responsible for initializing the database Dao and [GithubRepositoryManager].
+     * Once initialized, it then attaches the auth state listener.
+     */
     init {
         val dao = AppDatabase.getInstance(application).githubDao()
         repositoryManager = GithubRepositoryManager(dao)
+        userRepositoryManager = UserRepositoryManager()
         auth.addAuthStateListener (authStateListener)
     }
 
+    /**
+     * Purges the auth state listener when the ViewModel is destroyed.
+     */
     override fun onCleared() {
         super.onCleared()
         auth.removeAuthStateListener(authStateListener)
@@ -85,32 +103,22 @@ class GithubViewModel(application: Application) : AndroidViewModel(application) 
     val isNetworkRefreshDisabled: State<Boolean> = _isNetworkRefreshDisabled
 
     /**
-     * A private function which is responsible fo fetching
-     * 'disableNetworkRefresh' bool from the user's Firestore document.
+     * A private function which requests the 'disableNetworkRefresh' bool from a user's
+     * Firestore document.
      */
-    private fun fetchNetworkRefreshPreference() {
-        viewModelScope.launch {
-            val userId = auth.currentUser?.uid
+    private suspend fun fetchNetworkRefreshPreference() {
+        val isDisabled = userRepositoryManager.getNetworkRefreshPreference()
+        _isNetworkRefreshDisabled.value = isDisabled
+        Log.d(TAG, "Loaded network preferences from the cloud: Disabled=$isDisabled")
+    }
 
-            // If the user is logged in as a guest,
-            // repositories will continue to refresh from network.
-            if (userId == null) {
-                _isNetworkRefreshDisabled.value = false
-                fetchFeaturedRepos()
-                return@launch
-            }
-            try { // Tries to check firestore for user preference.
-                val doc = firestore.collection("users").document(userId).get().await()
-                val isDisabled = doc.getBoolean("disableNetworkRefresh") ?: false
-                _isNetworkRefreshDisabled.value = isDisabled
-                Log.d(TAG, "Loaded network preferences from the cloud: Disabled=$isDisabled")
 
-                // Once preference is determined, fetch the repos
-                fetchFeaturedRepos()
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to fetch preferences from Firestore. Defaulting to enabled.", e)
-            }
-        }
+    /**
+     * A private function which is responsible for fetching user-saved repositories.
+     */
+    private suspend fun fetchUserSavedRepos() {
+        userSavedRepositories = userRepositoryManager.getUserSavedRepoIds()
+        Log.d(TAG, "Loaded ${userSavedRepositories.size} custom repositories from Firestore.")
     }
 
     /**
@@ -121,17 +129,8 @@ class GithubViewModel(application: Application) : AndroidViewModel(application) 
         _isNetworkRefreshDisabled.value = isDisabled // Update UI so switch immediately responds.
         if (!isDisabled) {
             fetchFeaturedRepos()
-        }
-
-        viewModelScope.launch {
-            val userId = auth.currentUser?.uid ?: return@launch
-            try {
-                val userDocRef = firestore.collection("users").document(userId)
-                val preference = mapOf("disableNetworkRefresh" to isDisabled)
-                userDocRef.set(preference, SetOptions.merge()).await()
-                Log.d(TAG, "Saved network preference to cloud: $isDisabled")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to save user preference to Firestore", e)
+            viewModelScope.launch {
+                userRepositoryManager.updateNetworkRefreshPreferences(isDisabled)
             }
         }
     }
@@ -173,35 +172,20 @@ class GithubViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * A function which is responsible for fetching a single repository and inserts it into the
-     * database using [GithubRepositoryManager]
-     *
-     * After subsequent data retrieval, it triggers a reload all data by calling [fetchFeaturedRepos]
-     * In the event a repository cannot be retrieved, or a network error occurs the [errorState]
-     * is updated.
-     *
-     * @param owner The username associated with a repository.
-     * @param repoName The name of the GitHub repository.
+     * A function which is responsible for coordinating the addition of a repository. Using
+     * [GithubRepositoryManager] to insert into local cache and [UserRepositoryManager] to also add
+     * such to the user's remotely saved list.
      */
     fun addRepository(owner: String, repoName: String) {
         viewModelScope.launch {
             try {
-                // Fetches repository from network via manager.
-                val newlyInsertedRepo = repositoryManager.fetchRepositoryFromNetwork(owner, repoName)
+                val newRepo = repositoryManager.fetchAndSaveNewRepository(owner, repoName)
 
-                val releases = repositoryManager.fetchReleasesFromNetwork(owner, repoName)
-                val latestRelease = releases.firstOrNull()
+                // Delegates Firestore sync to UserRepositoryManager.
+                userRepositoryManager.addSavedRepo(newRepo.fullName)
+                userSavedRepositories = userSavedRepositories + newRepo.fullName
 
-                // Saves repo to the database via the manager.
-                repositoryManager.insertRepository(newlyInsertedRepo)
-
-                if (latestRelease != null) {
-                    // Manually links release to respective repo using the full name.
-                    latestRelease.repoFullName = newlyInsertedRepo.fullName
-                    repositoryManager.insertReleases(listOf(latestRelease))
-                }
-
-                Log.d(TAG, "${newlyInsertedRepo.fullName} and release info added to the database.")
+                Log.d(TAG, "${newRepo.fullName} and release info added to the database.")
                 fetchFeaturedRepos() // Refreshes UI
                 _errorState.value = null // Clear previous errors.
             } catch (e: Exception) {
@@ -212,16 +196,17 @@ class GithubViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     /**
-     * A function which is responsible for concurrently deleting release information,
-     * and repository information from the local database. Subsequently, it reloads data from
-     * the cache to update the UI immediately.
-     *
-     * @param repo The [GithubRepository] object to be deleted.
+     * A function which is responsible for coordinating the deletion of a repository. Using
+     * [GithubRepositoryManager] to purge local cache and [UserRepositoryManager] to remove such
+     * from the user's remotely saved list.
      */
     fun deleteRepository(repo: GithubRepository) {
         viewModelScope.launch {
             try {
                 repositoryManager.deleteRepository(repo)
+
+                userRepositoryManager.removeSavedRepo(repo.fullName)
+
                 Log.d(TAG , "${repo.fullName} " + "Purged from database.")
                 loadFromCache() // Re-run fetch logic to update UI
                 _errorState.value = null // Clear previous errors.
@@ -279,7 +264,7 @@ class GithubViewModel(application: Application) : AndroidViewModel(application) 
             }
 
             if (refreshedRepositories.isEmpty()) {
-                refreshedRepositories = featuredRepositories
+                refreshedRepositories = (featuredRepositories + userSavedRepositories).distinct()
             }
 
             // Creates a list of async jobs for each repository.
@@ -313,6 +298,7 @@ class GithubViewModel(application: Application) : AndroidViewModel(application) 
                             latestRelease?.repoFullName = repo.fullName
                             repo.fullName to latestRelease
                         } catch (e: Exception) {
+                            Log.w(TAG, "Failed to fetch releases for ${repo.fullName}", e)
                             repo.fullName to null
                         }
                     }
