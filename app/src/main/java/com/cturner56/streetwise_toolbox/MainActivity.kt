@@ -101,8 +101,7 @@ fun MainActivityScaffold(authViewModel: AuthViewModel, onLogout: () -> Unit) {
     ManagePermissionState(
         onServiceNotRunning = {
             Toast.makeText(context,
-                "Shizuku service isn't running, " +
-                "click 'request button' to be redirected to a video tutorial.",
+                "Shizuku isn't running, click 'request' to see how-to video",
                 Toast.LENGTH_LONG).show()
         }
     ) { _, _ ->

@@ -276,7 +276,7 @@ fun RepositoryCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_star),
-                        contentDescription = "Star count",
+                        contentDescription = "Star count for ${repository.fullName}",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(12.dp))
@@ -288,7 +288,7 @@ fun RepositoryCard(
                     IconButton(onClick = onDelete){
                         Icon(
                             painter = painterResource(id = R.drawable.ic_delete_repo),
-                            contentDescription = "Delete repository",
+                            contentDescription = "Delete repository ${repository.fullName}",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
